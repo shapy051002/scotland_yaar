@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, shrink-to-fit=no, user-scalable=no">
+  <title>SSY</title>
+  <meta name="description" content="Simple Scotland Yard in HTML">
+  <meta name="author" content="pvx">
+
+<style>
+@keyframes blink { 50% { opacity: 0; } }
+@keyframes scale { 0% { transform: scale(3); } 100% { transform: scale(1); } }
+#svgs { display:none; }
+#map { background-size: cover; position: relative; }
+#play { position: fixed; right: 0px; top: 0px; max-height: 99vh; overflow-y: auto; border: 3px solid black; background: lightgray; }
+#play > div { margin: 1rem; }
+#playerpos p { font-size: 120%; cursor: pointer; }
+#playerpos p.cur { background: lightskyblue; }
+#playerpos svg, #movelist svg { width: 24px; }
+#playerpos b { display: block; float: right; }
+#movelist ul { list-style-type: none; padding: 0; margin: 0; }
+#movelist li { display: inline-block; font-weight: normal; width: 5ch; font-family: monospace; margin-right: 1em; padding: 2px; }
+.m_T { background-color: #f4e886; }
+.m_B { background-color: #72bfb5; }
+.m_U { background-color: #e88072; }
+.m_X { background-color: #aaa; }
+#movetbl.small { max-height: 4em; overflow: hidden; }
+#setupwrap, #movewrap { border: 3px solid lightskyblue; }
+#moveinfo { line-height: 2; }
+#qrmove { background: white; }
+h1,h2 { font-size: 1.2em; text-align: center; cursor: pointer; }
+h4 { font-size: 100%; margin: 0; margin-block: 0; padding: 0 0 0.3rem 0; }
+button, select { font-size: 1.1rem; padding: 6px 12px; min-width: 4rem; border-radius: 6px; cursor: pointer; }
+button.sel { background: lightblue; }
+.player { display: block; position: absolute; }
+.player.cur { animation: scale 1s linear, blink 2s ease-in-out 3 1s; }
+footer { color: gray; text-align: center; }
+footer .links { font-size: 85%; }
+footer a { margin: 0 0.5rem; color: inherit; }
+.modal { align-items: center; display: flex; flex-direction: column; justify-content: center; overflow: hidden; position: fixed; z-index: 40; bottom: 0; left: 0; right: 0; top: 0; }
+.modal-background { background-color: rgba(10, 10, 10, 0.86); bottom: 0; left: 0; right: 0; top: 0; position: absolute; }
+.modal-card { display: flex; flex-direction: column; max-height: calc(100vh - 40px); overflow: hidden; margin: 0 auto; background-color: white; z-index: 41; padding: 2em; border-radius: 6px; }
+
+/* PeerJS Overlay Styles */
+#p2p-overlay {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 1000;
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 16px;
+    padding: 15px;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    color: white;
+    font-family: 'Segoe UI', sans-serif;
+    width: 300px;
+    transition: all 0.3s ease;
+}
+#p2p-overlay.hidden { transform: translateY(150%); opacity: 0; }
+.p2p-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; font-weight: 600; font-size: 0.9rem; }
+.connection-status { width: 10px; height: 10px; border-radius: 50%; background-color: #ff4b2b; display: inline-block; margin-right: 8px; box-shadow: 0 0 8px #ff4b2b; }
+.connection-status.connected { background-color: #00ff88; box-shadow: 0 0 8px #00ff88; }
+.p2p-content { display: flex; flex-direction: column; gap: 10px; }
+.p2p-row { display: flex; align-items: center; justify-content: space-between; font-size: 0.8rem; }
+.p2p-id-box { background: rgba(0, 0, 0, 0.2); padding: 4px 8px; border-radius: 4px; font-family: monospace; cursor: pointer; word-break: break-all; flex-grow: 1; margin-right: 8px; border: 1px solid rgba(255, 255, 255, 0.1); }
+.p2p-id-box:hover { background: rgba(0, 0, 0, 0.3); }
+.p2p-input-group { display: flex; gap: 5px; }
+.p2p-input-group input { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; padding: 6px; color: white; flex-grow: 1; outline: none; }
+.p2p-input-group input::placeholder { color: rgba(255, 255, 255, 0.5); }
+.p2p-button { background: #007aff; color: white; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 0.8rem; transition: background 0.2s; }
+.p2p-button:hover { background: #005ec4; }
+.p2p-button:disabled { background: #666; cursor: not-allowed; }
+.p2p-copy-hint { font-size: 0.65rem; color: rgba(255, 255, 255, 0.6); text-align: center; margin-top: 4px; }
+</style>
+</head>
+
+<body>
+<svg id="svgs"></svg>
+
+<div id="body-wrapper">
+  <section id="map"></section>
+
+  <nav id="play">
+    <h1>SSY - <span id="name" class="lng"></span></h1>
+    <div>
+        <button id="newgame" class="lng"></button>
+        <button id="setup" class="lng"></button>
+        <button id="p2p-toggle-ui" style="background: #007aff; color: white; border-radius: 4px;">🌐 Connect</button>
+    </div>
+    <div id="setupwrap">
+        <div id="ui-visual"></div>
+    </div>
+    <div id="playerpos"></div>
+    <div id="movelist">
+        <h4 id="moves" class="lng"></h4>
+        <ul id="movetbl_h"></ul>
+        <div id="movetbl"></div>
+    </div>
+    <div id="movewrap">
+        <div id="moveinfo"></div>
+        <div id="qrmove"></div>
+        <select id="move"></select>
+        <button id="move-x">X</button>
+        <button id="move-2">2</button>
+        <button id="go" class="lng"></button>
+    </div>
+    <div id="replay">
+        <button id="rep-f">&#8676;</button>
+        <button id="rep-p">&#8592;</button>
+        <button id="rep-n">&#8594;</button>
+        <button id="rep-l">&#8677;</button>
+    </div>
+  </nav>
+
+  <footer>
+    <p><a href="https://github.com/pvxx/simple-scotland-yard">Simple Scotland Yard</a> &copy;2023 PVx, <a href="http://opensource.org/licenses/MIT">MIT License</a></p>
+    <p class="links">Used boards:
+        <a href="https://github.com/tim-koehler/ScotlandYard">Tim Koehler</a>
+        <a href="https://scotland-yard.sourceforge.net">Shashi Mittal</a>
+    </p>
+  </footer>
+</div>
+
+<div id="intro" class="modal">
+    <div class="modal-background"></div>
+    <div class="modal-card">
+        <h1>SSY - Simple Scotland Yard</h1>
+        <h2><a href="https://github.com/pvxx/simple-scotland-yard">Click here for more info</a></h2>
+        <p>Quick info:
+            <ul>
+                <li>Setup UI first (will be stored in browser)</li>
+                <li>"New Game" to (re)start</li>
+                <li>X must scan QR code for position and possible moves</li>
+                <li>Select move in dropdown and click "Go"</li>
+            </ul>
+        </p>
+        <small>Click anywhere to close this window</small>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.7.1.slim.min.js"></script>
+<script src="qrcode.min.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script src="config.js"></script>
+<script src="game.js"></script>
+
+<div id="p2p-overlay" class="hidden">
+    <div class="p2p-header">
+        <span><span id="p2p-status" class="connection-status"></span> P2P Network</span>
+        <button id="p2p-close-btn" style="background:transparent; border:none; color:white; cursor:pointer; font-size:1.2rem;">×</button>
+    </div>
+    <div class="p2p-content">
+        <div class="p2p-row">
+            <div id="my-id" class="p2p-id-box" title="Click to copy">Loading...</div>
+        </div>
+        <div class="p2p-input-group">
+            <input type="text" id="peer-id-input" placeholder="Enter Friend's ID">
+            <button id="p2p-connect-btn" class="p2p-button">Connect</button>
+        </div>
+        <div class="p2p-copy-hint">Click ID to copy</div>
+    </div>
+</div>
+
+</body>
+</html>
