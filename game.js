@@ -464,11 +464,18 @@ function handle_incoming_data(payload, senderId) {
 }
 
 ssy_p2p_broadcast_state = function() {
-    const payload = { type: 'STATE_SYNC', state: ssy_var.state };
+    // Forcefully bundle role and name mappings into every single packet update
+    const payload = { 
+        type: 'STATE_SYNC', 
+        state: ssy_var.state,
+        roleMap: ssy_var.p2p.roleMap,
+        players: ssy_var.p2p.players
+    };
+    
     if (ssy_var.p2p.isHost) {
         ssy_var.p2p.conns.forEach(c => c.send(payload));
     } else if (ssy_var.p2p.hostConn) {
-        ssy_var.p2p.hostConn.send(payload);
+        ssy_var.p2p.hostConn.send(payload); // Client updates host
     }
 }
 
