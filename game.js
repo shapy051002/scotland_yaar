@@ -7,20 +7,21 @@ ssy_var = {
     'state': {},
     'p2p': {
         'peer': null,
-        'conns': [], // Used by host to track multiple players (max 5)
-        'hostConn': null, // Used by clients to talk to host
+        'conns': [], 
+        'hostConn': null, 
         'isHost': true,
         'myId': null,
         'myName': 'Guest-' + Math.floor(Math.random() * 9000 + 1000),
-        'players': {}, // { peerId: "Username" }
-        'roleMap': { 0: null, 1: null, 2: null, 3: null, 4: null, 5: null } // Maps player role (0-5) to a PeerID
+        'players': {}, 
+        'roleMap': { 0: null, 1: null, 2: null, 3: null, 4: null, 5: null } 
     }
 }
 
 ssy_init = function() {
-    $('#movelist, #movewrap, #replay, #config').hide();
+    // Corrected to keep movelist and movewrap container DOM elements structural baselines visible immediately
+    $('#replay, #config').hide();
+    $('#movelist, #movewrap').show();
 
-    // Load nodes and map data
     var rows = ssy_cfg.board.map.startpos_d.trim().split('\n');
     for(var row in rows) ssy_var.config.nodestart_d.push(parseInt(rows[row]));
     
@@ -58,7 +59,6 @@ ssy_init = function() {
 
     if (ssy_var.state && ssy_var.state.cur && ssy_var.state.cur.what) {
         ssy_ui_tomoves('history');
-        $('#movelist, #movewrap').show();
         if(ssy_var.state.cur.what == 'play') ssy_step();
         else if(ssy_var.state.cur.what == 'end') {
             $('#move, #go, #move-x, #move-2').hide();
@@ -96,7 +96,7 @@ ssy_start = function() {
     ssy_var.state.history[1] = [];
 
     ssy_ui_tomoves('history');
-    $('#movelist, #movewrap, #move, #go').show();
+    $('#move, #go').show();
     $('#replay').hide();
 
     ssy_step();
@@ -134,7 +134,6 @@ ssy_step = function() {
 }
 
 ssy_move = function() {
-    // ENFORCE ROLE TURNS
     const currentPlayerIdAssigned = ssy_var.p2p.roleMap[ssy_var.state.cur.player];
     if (currentPlayerIdAssigned !== ssy_var.p2p.myId) {
         console.warn('Network Gate: Not your turn!');
@@ -166,7 +165,7 @@ ssy_move = function() {
     }
 
     ssy_step();
-    ssy_p2p_broadcast_state(); // Send mutation to Host (or broadcast if Host)
+    ssy_p2p_broadcast_state(); 
 }
 
 ssy_ui_redraw = function(all = false) {
@@ -200,7 +199,7 @@ ssy_ui_redraw = function(all = false) {
         $('.player').css({'width': ssy_cfg.board.pieces.width + 'px'});
     }
 
-    // Role Enforcement Disabling
+    // Role Enforcement interface controls state toggling
     if (ssy_var.state && ssy_var.state.cur) {
         const expectedPeerId = ssy_var.p2p.roleMap[ssy_var.state.cur.player];
         if (expectedPeerId !== ssy_var.p2p.myId) {
@@ -219,7 +218,6 @@ ssy_ui_fillmove = function(player, pos) {
     if(possible.length == 0) possible.push('.' + pos);
     for(var item in moves) mvout += item + ': ' + moves[item] + '; ';
 
-    // Reset visibility blocks cleanly every turn
     $('#move-x, #move-2').hide();
     $('#move-controls').show();
     $('#mr-x-waiting').hide();
@@ -228,7 +226,6 @@ ssy_ui_fillmove = function(player, pos) {
         $('#move-x').toggle(ssy_var.state.moves[0]['X'] > 0);
         $('#move-2').toggle((ssy_var.state.moves[0]['2'] > 0) && (ssy_var.state.last2 + 2 < ssy_var.state.cur.round));
         
-        // Hide Mr X dropdown strictly if the current user isn't assigned to Mr X
         if (ssy_var.p2p.roleMap[0] !== ssy_var.p2p.myId) {
             $('#move-controls').hide();
             $('#mr-x-waiting').show();
@@ -240,13 +237,11 @@ ssy_ui_fillmove = function(player, pos) {
 
     out = '<option value="">---</option>';
     for(const[i, item] of possible.entries()) {
-        // Mr. X and Detectives now both see exact nodes and transport types
         out += '<option value="' + item + '">' + item.substring(1) + ' (' + item.charAt(0) + ')</option>';
     }
     $('#move').html(out);
 }
 
-// Map Panning and Zooming
 function initPanZoom() {
     let scale = 1, panX = 0, panY = 0, isDragging = false, startX, startY;
     const $map = $('#map');
@@ -277,18 +272,14 @@ function initPanZoom() {
     $(window).on('mouseup touchend', function() { isDragging = false; });
 }
 
-// --- P2P Multi-client Architecture ---
 ssy_p2p_init = function() {
     ssy_var.p2p.peer = new Peer();
-    
     $('#my-username-display').text(ssy_var.p2p.myName);
 
     ssy_var.p2p.peer.on('open', (id) => {
-        console.log('My ID:', id);
         ssy_var.p2p.myId = id;
         ssy_var.p2p.players[id] = ssy_var.p2p.myName;
         
-        // As host initially, assign all roles to self
         for (let i = 0; i < 6; i++) ssy_var.p2p.roleMap[i] = id;
         
         $('#my-id').text(id);
@@ -296,23 +287,18 @@ ssy_p2p_init = function() {
         renderPlayerRoster();
     });
 
-    // HOST receives connections
     ssy_var.p2p.peer.on('connection', (conn) => {
-        if (!ssy_var.p2p.isHost) { conn.close(); return; } // Only host accepts conns
+        if (!ssy_var.p2p.isHost) { conn.close(); return; }
         if (ssy_var.p2p.conns.length >= 5) {
-            console.warn("Room full");
-            conn.send({ type: 'ERROR', msg: 'Room is full (Max 6 players)' });
+            conn.send({ type: 'ERROR', msg: 'Room is full' });
             setTimeout(() => conn.close(), 1000);
             return;
         }
 
-        console.log('Peer joined:', conn.peer);
         ssy_var.p2p.conns.push(conn);
         
         conn.on('open', () => {
-            // Ask client for their name
             conn.send({ type: 'REQ_INFO' });
-            // Send them current game state immediately
             conn.send({ type: 'STATE_SYNC', state: ssy_var.state, roleMap: ssy_var.p2p.roleMap, players: ssy_var.p2p.players });
         });
 
@@ -322,15 +308,15 @@ ssy_p2p_init = function() {
             ssy_var.p2p.conns = ssy_var.p2p.conns.filter(c => c.peer !== conn.peer);
             delete ssy_var.p2p.players[conn.peer];
             renderPlayerRoster();
+            ssy_p2p_broadcast_roster();
         });
     });
 
-    // UI Listeners
     $('#p2p-connect-btn').on('click', () => {
         const remoteId = $('#peer-id-input').val();
         if (remoteId) {
-            ssy_var.p2p.isHost = false; // Transition to Client mode
-            $('#newgame').hide(); // Clients can't start games
+            ssy_var.p2p.isHost = false;
+            $('#newgame').hide();
             
             const conn = ssy_var.p2p.peer.connect(remoteId);
             ssy_var.p2p.hostConn = conn;
@@ -345,13 +331,10 @@ ssy_p2p_init = function() {
         }
     });
 
-    // Copy ID on click
     $('#my-id').on('click', function() {
         const id = $(this).text();
         if (id && id !== 'Loading...') {
-            navigator.clipboard.writeText(id).then(() => {
-                alert('ID copied to clipboard!');
-            });
+            navigator.clipboard.writeText(id).then(() => alert('ID copied to clipboard!'));
         }
     });
 
@@ -379,10 +362,9 @@ ssy_p2p_init = function() {
         $(this).text($('#play').hasClass('minimized') ? 'Show' : 'Hide');
     });
 
-    // History Toggle
     $('#toggle-history').on('click', function(e) {
         e.preventDefault();
-        $('#history-container').slideToggle();
+        $('#history-container').toggle();
     });
 }
 
@@ -399,7 +381,8 @@ function handle_incoming_data(payload, senderId) {
         ssy_var.p2p.roleMap = payload.roleMap;
         ssy_var.p2p.players = payload.players;
         renderPlayerRoster();
-        ssy_ui_redraw(); // Update disabled buttons
+        ssy_ui_redraw();
+        if(ssy_var.state.cur) ssy_ui_fillmove(ssy_var.state.cur.player, ssy_var.state.pos[ssy_var.state.cur.player]);
     }
     else if (payload.type === 'STATE_SYNC') {
         ssy_var.state = payload.state;
@@ -408,8 +391,6 @@ function handle_incoming_data(payload, senderId) {
         renderPlayerRoster();
         ssy_ui_redraw(true);
         if(ssy_var.state.cur) ssy_ui_fillmove(ssy_var.state.cur.player, ssy_var.state.pos[ssy_var.state.cur.player]);
-        
-        // If Host receives a move from a client, echo it to other clients
         if (ssy_var.p2p.isHost) ssy_p2p_broadcast_state(); 
     }
 }
@@ -419,7 +400,7 @@ ssy_p2p_broadcast_state = function() {
     if (ssy_var.p2p.isHost) {
         ssy_var.p2p.conns.forEach(c => c.send(payload));
     } else if (ssy_var.p2p.hostConn) {
-        ssy_var.p2p.hostConn.send(payload); // Client updates host
+        ssy_var.p2p.hostConn.send(payload);
     }
 }
 
@@ -445,7 +426,6 @@ function renderPlayerRoster() {
                 ${roles[i]}
             </span>`;
             
-        // Host gets dropdowns to assign roles, clients just see the text
         if (ssy_var.p2p.isHost) {
             html += `<select onchange="updateRole(${i}, this.value)">`;
             Object.keys(ssy_var.p2p.players).forEach(pId => {
@@ -460,17 +440,20 @@ function renderPlayerRoster() {
         html += `<b id="lbl${i}" style="margin-left:10px;">--</b></div>`;
     }
     $('#playerpos').html(html);
-    if(ssy_var.state && ssy_var.state.pos) ssy_ui_redraw(); // Re-apply current turn highlight
+    if(ssy_var.state && ssy_var.state.pos) ssy_ui_redraw();
 }
 
-// Global hook for dropdowns
 window.updateRole = function(roleIndex, newPeerId) {
     ssy_var.p2p.roleMap[roleIndex] = newPeerId;
     ssy_p2p_broadcast_roster();
-    ssy_ui_redraw(); // Update disable/enable buttons immediately
+    ssp_ui_sync_call();
 }
 
-// Helpers
+function ssp_ui_sync_call() {
+    ssy_ui_redraw();
+    if(ssy_var.state.cur) ssy_ui_fillmove(ssy_var.state.cur.player, ssy_var.state.pos[ssy_var.state.cur.player]);
+}
+
 ssy_ui_tomoves = function(val) {
     if(val == 'line') $('#movetbl').prepend('<ul></ul>');
     else if(val == 'history') {
