@@ -28,13 +28,19 @@
 #playerpos svg, #movelist svg { width: 24px; vertical-align: middle; }
 #playerpos select { max-width: 120px; font-size: 0.9rem; }
 
-#movelist ul { list-style-type: none; padding: 0; margin: 0; }
-#movelist li { display: inline-block; font-weight: normal; width: 5ch; font-family: monospace; margin-right: 1em; padding: 2px; }
-.m_T { background-color: #f4e886; }
-.m_B { background-color: #72bfb5; }
-.m_U { background-color: #e88072; }
-.m_X { background-color: #aaa; }
-#movewrap { border: 3px solid lightskyblue; padding: 10px; }
+/* Refactored History List Formatting */
+#history-container { max-height: 250px; overflow-y: auto; background: rgba(255, 255, 255, 0.85); border: 1px solid #bbb; border-radius: 6px; padding: 8px; font-family: 'Segoe UI', sans-serif; }
+.history-round { margin-bottom: 12px; border-bottom: 1px dashed #aaa; padding-bottom: 8px; }
+.history-round h5 { margin: 0 0 4px 0; font-size: 0.95rem; color: #333; }
+.history-log-line { display: flex; align-items: center; margin: 2px 0; padding: 4px 6px; border-radius: 4px; font-size: 0.9rem; font-weight: 500; }
+
+.m_T { background-color: #f4e886; color: #000; }
+.m_B { background-color: #72bfb5; color: #000; }
+.m_U { background-color: #e88072; color: #000; }
+.m_X { background-color: #aaa; color: #000; }
+.m_dot { background-color: #fff; color: #666; border: 1px solid #ccc; }
+
+#movewrap { border: 3px solid lightskyblue; padding: 10px; margin-top: 10px; }
 #moveinfo { line-height: 2; margin-bottom: 8px; }
 
 .player { display: block; position: absolute; filter: drop-shadow(0px 0px 6px rgba(255, 255, 255, 0.8)); transition: top 0.3s, left 0.3s; }
@@ -49,19 +55,16 @@ button.sel { background: lightblue; }
 .modal-background { background-color: rgba(10, 10, 10, 0.86); bottom: 0; left: 0; right: 0; top: 0; position: absolute; }
 .modal-card { display: flex; flex-direction: column; max-height: calc(100vh - 40px); overflow: hidden; margin: 0 auto; background-color: white; z-index: 101; padding: 2em; border-radius: 6px; }
 
-/* PeerJS Overlay Styles */
 #p2p-overlay { position: fixed; bottom: 20px; left: 20px; z-index: 1000; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 12px; padding: 15px; box-shadow: 0 8px 32px 0 rgba(0,0,0,0.5); color: white; font-family: sans-serif; width: 300px; transition: all 0.3s ease; }
 #p2p-overlay.hidden { transform: translateY(150%); opacity: 0; pointer-events: none; }
 .p2p-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; font-weight: bold; }
 .connection-status { width: 10px; height: 10px; border-radius: 50%; background-color: #ff4b2b; display: inline-block; margin-right: 8px; box-shadow: 0 0 8px #ff4b2b; }
 .connection-status.connected { background-color: #00ff88; box-shadow: 0 0 8px #00ff88; }
 .p2p-content { display: flex; flex-direction: column; gap: 10px; }
-.p2p-row { display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem; }
 .p2p-id-box { background: rgba(0, 0, 0, 0.3); padding: 6px; border-radius: 4px; font-family: monospace; cursor: pointer; flex-grow: 1; border: 1px solid rgba(255, 255, 255, 0.2); text-align: center; margin-bottom: 5px;}
 .p2p-input-group { display: flex; gap: 5px; }
 .p2p-input-group input { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; padding: 6px; color: white; flex-grow: 1; }
-.p2p-button { background: #007aff; color: white; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; transition: background 0.2s; }
-.p2p-button:hover { background: #005ec4; }
+.p2p-button { background: #007aff; color: white; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; }
 </style>
 </head>
 
@@ -89,15 +92,12 @@ button.sel { background: lightblue; }
         </div>
 
         <h4 style="margin:0 0 5px 0;">Role Assignments:</h4>
-        <div id="playerpos">
-            </div>
+        <div id="playerpos"></div>
 
+        <!-- Scrollable Custom Structured Move History Container -->
         <div id="movelist" style="margin-top: 10px; display: block !important;">
-            <button id="toggle-history" style="width: 100%; background: #ccc; border: 1px solid #aaa; padding: 6px; border-radius: 4px; font-weight: bold; cursor: pointer;">Toggle Move History</button>
-            <div id="history-container" style="display:none; margin-top: 10px; background: rgba(255,255,255,0.6); padding: 5px; border-radius: 4px;">
-                <ul id="movetbl_h"></ul>
-                <div id="movetbl"></div>
-            </div>
+            <button id="toggle-history" style="width: 100%; background: #ccc; border: 1px solid #aaa; padding: 6px; border-radius: 4px; font-weight: bold; cursor: pointer; margin-bottom: 5px;">Toggle Move History</button>
+            <div id="history-container" style="display:none;"></div>
         </div>
 
         <div id="movewrap">
