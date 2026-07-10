@@ -18,7 +18,6 @@ ssy_var = {
 }
 
 ssy_init = function() {
-    // Corrected to keep movelist and movewrap container DOM elements structural baselines visible immediately
     $('#replay, #config').hide();
     $('#movelist, #movewrap').show();
 
@@ -58,7 +57,7 @@ ssy_init = function() {
     ssy_ui_redraw(true);
 
     if (ssy_var.state && ssy_var.state.cur && ssy_var.state.cur.what) {
-        ssy_ui_tomoves('history');
+        ssy_ui_render_custom_history();
         if(ssy_var.state.cur.what == 'play') ssy_step();
         else if(ssy_var.state.cur.what == 'end') {
             $('#move, #go, #move-x, #move-2').hide();
@@ -95,7 +94,7 @@ ssy_start = function() {
     for(var i = 1; i < ssy_cfg.players.length; i++) ssy_var.state.moves[i] = {...ssy_cfg.rules.moves_d};
     ssy_var.state.history[1] = [];
 
-    ssy_ui_tomoves('history');
+    ssy_ui_render_custom_history();
     $('#move, #go').show();
     $('#replay').hide();
 
@@ -110,7 +109,6 @@ ssy_step = function() {
         curs.player = 0;
         curs.round++;
         ssy_var.state.history[curs.round] = [];
-        ssy_ui_tomoves('line');
     }
 
     if(([...ssy_var.state.pos].slice(1).includes(ssy_var.state.pos[0])) || (ssy_int_possible_moves(0, ssy_var.state.pos[0]).length == 0)) {
@@ -124,12 +122,13 @@ ssy_step = function() {
     }
 
     if(ssy_var.state.cur.what == 'end') {
-        ssy_ui_tomoves('history');
+        ssy_ui_render_custom_history();
         $('#move, #go').hide();
         $('#replay').show();
     } else {
         ssy_ui_fillmove(curs.player, ssy_var.state.pos[curs.player]);
     }
+    ssy_ui_render_custom_history();
     ssy_ui_redraw();
 }
 
@@ -152,7 +151,6 @@ ssy_move = function() {
 
     ssy_var.state.pos[player] = parseInt(move.substring(1));
     ssy_var.state.history[round][player] = move;
-    ssy_ui_tomoves(ssy_int_move_display(player, round, ssy_int_x_shown(round)));
 
     if(move.charAt(0) != '.') ssy_var.state.moves[player][move.charAt(0)]--;
 
@@ -173,21 +171,34 @@ ssy_ui_redraw = function(all = false) {
         var curs = ssy_var.state.cur;
         var x_shown = ssy_int_x_shown(curs.round - (curs.player == 0 ? 1 : 0));
 
+        // Enforce piece rendering visibility rules based on active client role
+        const amIMrX = ssy_var.p2p.roleMap[0] === ssy_var.p2p.myId;
+        
         for(var i = 0; i < ssy_cfg.players.length; i++) {
             var npos = ssy_var.config.nodepos[ssy_var.state.pos[i]];
             $('#p' + i).css({
                 'top': ((npos[1] - ssy_cfg.board.pieces.center_y) * 1) + 'px',
                 'left': ((npos[0] - ssy_cfg.board.pieces.center_x) * 1) + 'px',
             });
-            $('#lbl' + i).html(ssy_int_move_display(i, curs.round, x_shown).substring(1));
+            
+            // Map text tracking logic updates
+            if (i === 0) {
+                $('#lbl' + i).html(amIMrX ? ssy_var.state.pos[0] : '--');
+            } else {
+                var lpos = ssy_var.state.history[curs.round]?.[i] || ssy_var.state.history[curs.round - 1]?.[i] || '.' + ssy_var.state.pos[i];
+                $('#lbl' + i).html(lpos.substring(1));
+            }
         }
+        
         if(curs.what == 'play') {
             $('#row' + curs.player).addClass('cur').siblings().removeClass('cur');
             $('#p' + curs.player).addClass('cur').siblings().removeClass('cur');
         } else {
             $('.player, .roster-row').removeClass('cur');
         }
-        $('#p0').toggle(x_shown);
+        
+        // Piece toggle rule updates
+        $('#p0').toggle(x_shown || amIMrX);
     }
 
     if(all) {
@@ -199,7 +210,6 @@ ssy_ui_redraw = function(all = false) {
         $('.player').css({'width': ssy_cfg.board.pieces.width + 'px'});
     }
 
-    // Role Enforcement interface controls state toggling
     if (ssy_var.state && ssy_var.state.cur) {
         const expectedPeerId = ssy_var.p2p.roleMap[ssy_var.state.cur.player];
         if (expectedPeerId !== ssy_var.p2p.myId) {
@@ -242,6 +252,68 @@ ssy_ui_fillmove = function(player, pos) {
     $('#move').html(out);
 }
 
+// Custom Role-Enforced Dynamic History Log Factory Engine
+ssy_ui_render_custom_history = function() {
+    if (!ssy_var.state || !ssy_var.state.history) return;
+    
+    const hist = ssy_var.state.history;
+    const amIMrX = ssy_var.p2p.roleMap[0] === ssy_var.p2p.myId;
+    const roles = ['Mr. X', 'Detective 1', 'Detective 2', 'Detective 3', 'Detective 4', 'Detective 5'];
+    
+    let containerHtml = '';
+    
+    // Skip index 0 (initial placement config row) and parse game turns linearly
+    for (let r = 1; r < hist.length; r++) {
+        let roundMoves = hist[r];
+        if (!roundMoves || roundMoves.length === 0) continue;
+        
+        let roundHtml = `<div class="history-round"><h5>Turn ${r}</h5>`;
+        let hasData = false;
+        
+        for (let p = 0; p < ssy_cfg.players.length; p++) {
+            let rawMove = roundMoves[p];
+            if (!rawMove) continue; // Player hasn't moved yet this round
+            
+            hasData = true;
+            let type = rawMove.charAt(0);
+            let station = rawMove.substring(1);
+            let displayText = '';
+            
+            if (p === 0) {
+                // Mr. X Custom Visibility Filtering Matrix Rule Matrix
+                let isRevealRound = ssy_cfg.rules.checkmoves.includes(r);
+                let transportLabel = type === '.' ? 'No Move' : (type === 'X' ? 'Black Ticket' : type);
+                
+                if (amIMrX) {
+                    // I am Mr X: Show ticket + destination station
+                    displayText = `${transportLabel} ➔ Moved to ${station}`;
+                } else {
+                    // I am a detective: Check if it's a reveal round
+                    if (isRevealRound) {
+                        displayText = `${transportLabel} ➔ Moved to ${station} (Revealed!)`;
+                    } else {
+                        displayText = `${transportLabel} ➔ Hidden Move`;
+                    }
+                }
+            } else {
+                // Detectives: Always visible to everyone everywhere
+                let transportLabel = type === '.' ? 'No Move' : type;
+                displayText = `${transportLabel} ➔ Moved to ${station}`;
+            }
+            
+            let classType = type === '.' ? 'dot' : type;
+            roundHtml += `<div class="history-log-line m_${classType}">
+                <strong style="min-width: 90px; display:inline-block;">${roles[p]}:</strong> ${displayText}
+            </div>`;
+        }
+        
+        roundHtml += `</div>`;
+        if (hasData) containerHtml += roundHtml;
+    }
+    
+    $('#history-container').html(containerHtml);
+}
+
 function initPanZoom() {
     let scale = 1, panX = 0, panY = 0, isDragging = false, startX, startY;
     const $map = $('#map');
@@ -279,7 +351,6 @@ ssy_p2p_init = function() {
     ssy_var.p2p.peer.on('open', (id) => {
         ssy_var.p2p.myId = id;
         ssy_var.p2p.players[id] = ssy_var.p2p.myName;
-        
         for (let i = 0; i < 6; i++) ssy_var.p2p.roleMap[i] = id;
         
         $('#my-id').text(id);
@@ -294,16 +365,13 @@ ssy_p2p_init = function() {
             setTimeout(() => conn.close(), 1000);
             return;
         }
-
         ssy_var.p2p.conns.push(conn);
         
         conn.on('open', () => {
             conn.send({ type: 'REQ_INFO' });
             conn.send({ type: 'STATE_SYNC', state: ssy_var.state, roleMap: ssy_var.p2p.roleMap, players: ssy_var.p2p.players });
         });
-
         conn.on('data', (payload) => handle_incoming_data(payload, conn.peer));
-        
         conn.on('close', () => {
             ssy_var.p2p.conns = ssy_var.p2p.conns.filter(c => c.peer !== conn.peer);
             delete ssy_var.p2p.players[conn.peer];
@@ -317,7 +385,6 @@ ssy_p2p_init = function() {
         if (remoteId) {
             ssy_var.p2p.isHost = false;
             $('#newgame').hide();
-            
             const conn = ssy_var.p2p.peer.connect(remoteId);
             ssy_var.p2p.hostConn = conn;
             
@@ -325,7 +392,6 @@ ssy_p2p_init = function() {
                 $('#p2p-overlay').addClass('hidden');
                 alert("Connected to Host!");
             });
-            
             conn.on('data', (payload) => handle_incoming_data(payload, conn.peer));
             conn.on('close', () => alert("Disconnected from Host"));
         }
@@ -383,6 +449,7 @@ function handle_incoming_data(payload, senderId) {
         renderPlayerRoster();
         ssy_ui_redraw();
         if(ssy_var.state.cur) ssy_ui_fillmove(ssy_var.state.cur.player, ssy_var.state.pos[ssy_var.state.cur.player]);
+        ssy_ui_render_custom_history();
     }
     else if (payload.type === 'STATE_SYNC') {
         ssy_var.state = payload.state;
@@ -391,6 +458,7 @@ function handle_incoming_data(payload, senderId) {
         renderPlayerRoster();
         ssy_ui_redraw(true);
         if(ssy_var.state.cur) ssy_ui_fillmove(ssy_var.state.cur.player, ssy_var.state.pos[ssy_var.state.cur.player]);
+        ssy_ui_render_custom_history();
         if (ssy_var.p2p.isHost) ssy_p2p_broadcast_state(); 
     }
 }
@@ -452,23 +520,11 @@ window.updateRole = function(roleIndex, newPeerId) {
 function ssp_ui_sync_call() {
     ssy_ui_redraw();
     if(ssy_var.state.cur) ssy_ui_fillmove(ssy_var.state.cur.player, ssy_var.state.pos[ssy_var.state.cur.player]);
+    ssy_ui_render_custom_history();
 }
 
-ssy_ui_tomoves = function(val) {
-    if(val == 'line') $('#movetbl').prepend('<ul></ul>');
-    else if(val == 'history') {
-        var mcnt = '';
-        for(var h_round = ssy_var.state.history.length - 1; h_round >= 0; h_round--) {
-            mcnt += '<ul>';
-            for(var h_player = 0; h_player < ssy_var.state.history[h_round].length; h_player++) {
-                mcnt += ssy_ui_fmtmove(ssy_int_move_display(h_player, h_round, ssy_int_x_shown(h_round)));
-            }
-            mcnt += '</ul>';
-        }
-        $('#movetbl').html(mcnt);
-    } else $('#movetbl ul:first').append(ssy_ui_fmtmove(val));
-}
-ssy_ui_fmtmove = function(mmov, tag = 'li') { return '<' + tag + ' class="m_' + mmov[0] + '">' + mmov + '</' + tag + '>'; }
+// Deprecated old table helpers bypassed to enforce the new visual timeline grid logic
+ssy_ui_tomoves = function(val) { ssy_ui_render_custom_history(); }
 ssy_int_possible_moves = function(player, pos) {
     var moves = ssy_var.state.moves[player];
     var occupied = [...ssy_var.state.pos].slice(1);
@@ -479,7 +535,7 @@ ssy_int_array_shuffle = function(array) {
 }
 ssy_int_x_shown = function(round) { return ssy_cfg.rules.checkmoves.includes(round) || ssy_var.state.cur.what != 'play'; }
 ssy_int_move_display = function(player, round, x_shown) {
-    var lpos = ssy_var.state.history[round][player] || ssy_var.state.history[round - 1][player];
+    var lpos = ssy_var.state.history[round]?.[player] || ssy_var.state.history[round - 1]?.[player] || '.0';
     return (player != 0 || x_shown) ? lpos : (ssy_cfg.rules.showhow ? lpos.charAt(0) : '') + '--';
 }
 
