@@ -219,6 +219,7 @@ ssy_ui_fillmove = function(player, pos) {
     if(possible.length == 0) possible.push('.' + pos);
     for(var item in moves) mvout += item + ': ' + moves[item] + '; ';
 
+    // Reset visibility blocks cleanly every turn
     $('#move-x, #move-2').hide();
     $('#move-controls').show();
     $('#mr-x-waiting').hide();
@@ -227,7 +228,7 @@ ssy_ui_fillmove = function(player, pos) {
         $('#move-x').toggle(ssy_var.state.moves[0]['X'] > 0);
         $('#move-2').toggle((ssy_var.state.moves[0]['2'] > 0) && (ssy_var.state.last2 + 2 < ssy_var.state.cur.round));
         
-        // Hide Mr X dropdown for non-Mr X players
+        // Hide Mr X dropdown strictly if the current user isn't assigned to Mr X
         if (ssy_var.p2p.roleMap[0] !== ssy_var.p2p.myId) {
             $('#move-controls').hide();
             $('#mr-x-waiting').show();
@@ -239,7 +240,8 @@ ssy_ui_fillmove = function(player, pos) {
 
     out = '<option value="">---</option>';
     for(const[i, item] of possible.entries()) {
-        out += '<option value="' + item + '">' + (player == 0 ? String.fromCharCode(65 + i ) : item.substring(1) + ' (' + item.charAt(0) + ')') + '</option>';
+        // Mr. X and Detectives now both see exact nodes and transport types
+        out += '<option value="' + item + '">' + item.substring(1) + ' (' + item.charAt(0) + ')</option>';
     }
     $('#move').html(out);
 }
@@ -343,6 +345,16 @@ ssy_p2p_init = function() {
         }
     });
 
+    // Copy ID on click
+    $('#my-id').on('click', function() {
+        const id = $(this).text();
+        if (id && id !== 'Loading...') {
+            navigator.clipboard.writeText(id).then(() => {
+                alert('ID copied to clipboard!');
+            });
+        }
+    });
+
     $('#my-username-display').on('click', function() {
         const newName = prompt("Enter new username:", ssy_var.p2p.myName);
         if (newName && newName.trim() !== '') {
@@ -361,9 +373,16 @@ ssy_p2p_init = function() {
 
     $('#p2p-toggle-ui').on('click', () => $('#p2p-overlay').removeClass('hidden'));
     $('#p2p-close-btn').on('click', () => $('#p2p-overlay').addClass('hidden'));
+    
     $('#toggle-panel').on('click', function() {
         $('#play').toggleClass('minimized');
         $(this).text($('#play').hasClass('minimized') ? 'Show' : 'Hide');
+    });
+
+    // History Toggle
+    $('#toggle-history').on('click', function(e) {
+        e.preventDefault();
+        $('#history-container').slideToggle();
     });
 }
 
