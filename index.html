@@ -11,7 +11,6 @@
 @keyframes blink { 50% { opacity: 0; } }
 @keyframes scale { 0% { transform: scale(3); } 100% { transform: scale(1); } }
 #svgs { display:none; }
-/* Changed to support panning/zooming */
 #map { background-size: cover; position: absolute; transform-origin: top left; cursor: grab; }
 #map:active { cursor: grabbing; }
 
@@ -35,11 +34,9 @@
 .m_B { background-color: #72bfb5; }
 .m_U { background-color: #e88072; }
 .m_X { background-color: #aaa; }
-#movetbl.small { max-height: 4em; overflow: hidden; }
 #movewrap { border: 3px solid lightskyblue; padding: 10px; }
 #moveinfo { line-height: 2; margin-bottom: 8px; }
 
-/* Player visibility enhancements */
 .player { display: block; position: absolute; filter: drop-shadow(0px 0px 6px rgba(255, 255, 255, 0.8)); transition: top 0.3s, left 0.3s; }
 .player.cur { animation: scale 1s linear, blink 2s ease-in-out 3 1s; filter: drop-shadow(0px 0px 12px rgba(0, 255, 255, 1)); z-index: 10; }
 
@@ -93,12 +90,16 @@ button.sel { background: lightblue; }
 
         <h4 style="margin:0 0 5px 0;">Role Assignments:</h4>
         <div id="playerpos">
-            </div>
+            <!-- Dynamically injected via JS -->
+        </div>
 
+        <!-- History Toggle implementation -->
         <div id="movelist" style="margin-top: 10px;">
-            <h4 id="moves" class="lng">History</h4>
-            <ul id="movetbl_h"></ul>
-            <div id="movetbl"></div>
+            <button id="toggle-history" style="width: 100%; background: #ccc; border: 1px solid #aaa; padding: 6px; border-radius: 4px; font-weight: bold; cursor: pointer;">Toggle Move History</button>
+            <div id="history-container" style="display:none; margin-top: 10px;">
+                <ul id="movetbl_h"></ul>
+                <div id="movetbl"></div>
+            </div>
         </div>
 
         <div id="movewrap">
