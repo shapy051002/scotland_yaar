@@ -90,13 +90,11 @@ button.sel { background: lightblue; }
 
         <h4 style="margin:0 0 5px 0;">Role Assignments:</h4>
         <div id="playerpos">
-            <!-- Dynamically injected via JS -->
-        </div>
+            </div>
 
-        <!-- History Toggle implementation -->
-        <div id="movelist" style="margin-top: 10px;">
+        <div id="movelist" style="margin-top: 10px; display: block !important;">
             <button id="toggle-history" style="width: 100%; background: #ccc; border: 1px solid #aaa; padding: 6px; border-radius: 4px; font-weight: bold; cursor: pointer;">Toggle Move History</button>
-            <div id="history-container" style="display:none; margin-top: 10px;">
+            <div id="history-container" style="display:none; margin-top: 10px; background: rgba(255,255,255,0.6); padding: 5px; border-radius: 4px;">
                 <ul id="movetbl_h"></ul>
                 <div id="movetbl"></div>
             </div>
